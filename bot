@@ -1,0 +1,50 @@
+from telebot import TeleBot
+import requests
+from bs4 import BeautifulSoup
+
+TOKEN = '6007596981:AAGV3MIiotQghG3t0N0o0KU6q8yhhh_Tnuk'
+bot = TeleBot(TOKEN)
+
+def get_values():
+    url = 'https://ru.investing.com/crypto/'
+    r = requests.get(url)
+    bs = BeautifulSoup(r.text,"lxml")
+    values = [val.text.strip() for val in bs.findAll('td', 'left noWrap elp symb js-currency-symbol')]
+    return values
+
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.chat.id, 'Добро пожаловать в бот про криптовалюты! Сейчас бот работает в пилотном режиме и можно отслеживать только одну валюту. Пожалуйста, напишите название её тикера, например, BTC')
+
+def get_num(values, crypto, money):
+    url = 'https://ru.investing.com/crypto/'
+    r = requests.get(url)
+    bs = BeautifulSoup(r.text, "lxml")
+    print(bs)
+    new_money = [val.text.strip() for val in bs.findAll('td', 'price js-currency-price')][values.index(crypto)]
+    if new_money > money + 10:
+        return new_money
+    else:
+        return money
+    
+
+@bot.message_handler(content_types=['text'])
+def save_crypto(message):
+    values = get_values()
+    crypto = message.text
+    if crypto in values:
+        bot.send_message(message.chat.id, f'Отлично! Будем отслеживать валюту {crypto}')
+        url = 'https://ru.investing.com/crypto/'
+        r = requests.get(url)
+        bs = BeautifulSoup(r.text, "lxml")
+        print(bs)
+        money = [val.text.strip() for val in bs.findAll('td', 'price js-currency-price')][values.index(crypto)]
+        bot.send_message(message.chat.id, f'Сейчас валюта стоит {money} долларов')
+        while True:
+            money = get_num(values, crypto, money)
+    else:
+        bot.send_message(message.chat.id, f'Извините, я не могу отследить валюту {crypto}! Попробуйте другую валюту или проверьте, нет ли здесь опечатки!')
+    
+
+bot.polling(none_stop=True, interval = 0)
